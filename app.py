@@ -29,14 +29,34 @@ last_webhook_events = []
 profile_cache = {}
 
 SYSTEM_PROMPT = """คุณคือผู้ช่วย AI ของบริษัท KA Safety and Engineering ที่ตอบคำถามเป็นภาษาไทย
-ข้อมูลหลักสูตรที่เปิดสอน:
-- หลักสูตร จป.หัวหน้างาน / จป.บริหาร / คปอ.
-- ระยะเวลาอบรม: 2 วัน 12 ชั่วโมง
-- คุณสมบัติผู้เข้าอบรม: เป็นลูกจ้างระดับหัวหน้างานหรือผู้บังคับบัญชา
-ข้อมูลติดต่อ:
-- โทร 094-565-9777, 088-221-2777
-- E-mail: kasafety.sale@gmail.com
-กรุณาตอบคำถามของลูกค้าอย่างสุภาพและเป็นประโยชน์ โดยอ้างอิงข้อมูลด้านบนในการตอบ
+
+📌 ข้อมูลหลักสูตรที่เปิดสอน:
+
+🎓 หลักสูตร จป.หัวหน้างาน
+⏱️ อบรม 2 วัน 12 ชั่วโมง
+มีให้บริการ 2 รูปแบบ:
+
+1️⃣ แบบ Public (รอบอบรมทั่วไป)
+   💰 ราคาท่านละ 2,300 บาท (ไม่รวม VAT 7%)
+
+2️⃣ แบบ In-House (จัดอบรมภายในบริษัทลูกค้า)
+   📋 ราคาสามารถติดต่อเจ้าหน้าที่เพื่อขอใบเสนอราคาได้
+   📝 กรุณาแจ้งข้อมูลดังนี้:
+      • ชื่อบริษัท
+      • ที่อยู่บริษัท
+      • เลขที่ผู้เสียภาษีบริษัท
+      • ชื่อ-นามสกุล และเบอร์ติดต่อลูกค้า
+
+🎓 หลักสูตร จป.บริหาร และ คปอ.
+   📞 ติดต่อเจ้าหน้าที่เพื่อสอบถามรายละเอียดเพิ่มเติม
+
+📞 ข้อมูลติดต่อ:
+   โทร 094-565-9777, 088-221-2777
+   📧 E-mail: kasafety.sale@gmail.com
+
+กรุณาตอบคำถามของลูกค้าอย่างสุภาพและเป็นประโยชน์
+เมื่อลูกค้าถามเรื่องหลักสูตร จป.หัวหน้างาน ให้แสดงข้อมูลราคาและรูปแบบการอบรมพร้อมอีโมจิให้ดูสวยงามและอ่านง่าย
+หากลูกค้าสนใจแบบ In-House ให้ขอข้อมูล ชื่อบริษัท ที่อยู่บริษัท เลขที่ผู้เสียภาษีบริษัท ชื่อ-นามสกุลและเบอร์ติดต่อลูกค้า
 หากคำถามไม่เกี่ยวข้องกับข้อมูลที่มี ให้ตอบตามความรู้ทั่วไปและแนะนำให้ติดต่อเจ้าหน้าที่หากต้องการข้อมูลเพิ่มเติม"""
 
 
@@ -146,13 +166,12 @@ def webhook():
 
             logger.info(f"EVENT type={ev_type} conv={conv_id} sender={sender_user_id}")
 
-            # --- จัดการ follow event (ลูกค้า add เพื่อน) ---
+            # --- follow event ---
             if ev_type == 'follow':
                 display_name = get_user_profile(sender_user_id) if sender_user_id else None
                 welcome_msg = build_welcome_message(display_name)
-                # ใช้ push message สำหรับ follow event (ไม่มี replyToken)
                 push_url = 'https://api.line.me/v2/bot/message/push'
-                headers = {
+                push_headers = {
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {LINE_CHANNEL_ACCESS_TOKEN}'
                 }
@@ -160,7 +179,7 @@ def webhook():
                     'to': sender_user_id,
                     'messages': [{'type': 'text', 'text': welcome_msg}]
                 }
-                req.post(push_url, headers=headers, json=push_data, timeout=10)
+                req.post(push_url, headers=push_headers, json=push_data, timeout=10)
                 logger.info(f"Sent follow welcome to {sender_user_id}")
                 continue
 
@@ -170,7 +189,6 @@ def webhook():
             msg = event.get('message', {})
             msg_type = msg.get('type', '')
 
-            # สร้าง state ถ้ายังไม่มี
             if conv_id not in chat_states:
                 chat_states[conv_id] = {
                     'paused': False,
@@ -180,7 +198,6 @@ def webhook():
                     'greeted': False
                 }
 
-            # บันทึก sender และดึงชื่อ
             if sender_user_id and sender_user_id not in chat_states[conv_id].get('customer_ids', []):
                 chat_states[conv_id].setdefault('customer_ids', []).append(sender_user_id)
 
@@ -189,18 +206,15 @@ def webhook():
                 if name:
                     chat_states[conv_id]['display_name'] = name
 
-            # ตรวจสอบ chatMode
             chat_mode = event.get('chatMode', '')
             if chat_mode == 'chat':
                 logger.info(f"chatMode=chat -> Admin handling, bot skip")
                 continue
 
-            # ตรวจสอบ Manual Pause
             if is_manually_paused(conv_id):
                 logger.info(f"Manually paused conv={conv_id}, skip")
                 continue
 
-            # ตรวจสอบ Admin cooldown
             if check_admin_replied_recently(conv_id):
                 elapsed = int(time.time() - chat_states[conv_id].get('admin_last_reply', 0))
                 logger.info(f"Admin replied {elapsed}s ago -> bot skip conv={conv_id}")
@@ -212,7 +226,7 @@ def webhook():
             user_text = msg.get('text', '').strip()
             display_name = chat_states[conv_id].get('display_name', '')
 
-            # --- ส่งข้อความต้อนรับครั้งแรก ---
+            # ข้อความต้อนรับครั้งแรก
             if not chat_states[conv_id].get('greeted', False):
                 chat_states[conv_id]['greeted'] = True
                 welcome_msg = build_welcome_message(display_name)
@@ -220,7 +234,7 @@ def webhook():
                 logger.info(f"Sent welcome message to {conv_id}")
                 continue
 
-            # --- ตอบคำถามปกติด้วย Claude ---
+            # ตอบด้วย Claude
             logger.info(f"Bot responding to: {user_text[:60]}")
             try:
                 resp = claude_client.messages.create(
@@ -287,13 +301,7 @@ def control_panel():
         btn_text = 'เปิด Bot' if bot_paused else 'หยุด Bot'
         btn_color = '#27ae60' if bot_paused else '#e74c3c'
 
-        states_html += f'''<div style="background:white;border-radius:12px;padding:16px;margin:10px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;gap:12px;">
-<div style="flex:1;min-width:0;">
-  <div style="font-weight:bold;color:#333;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{room_label}</div>
-  <div style="color:{status_color};font-size:13px;margin-top:4px;">● {status}</div>
-</div>
-<button onclick="controlBot(\'{conv_id}\',\'{action}\')" style="background:{btn_color};color:white;border:none;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer;white-space:nowrap;flex-shrink:0;">{btn_text}</button>
-</div>'''
+        states_html += f'<div style="background:white;border-radius:12px;padding:16px;margin:10px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;gap:12px;"><div style="flex:1;min-width:0;"><div style="font-weight:bold;color:#333;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{room_label}</div><div style="color:{status_color};font-size:13px;margin-top:4px;">● {status}</div></div><button onclick="controlBot(\'{conv_id}\',\'{action}\')" style="background:{btn_color};color:white;border:none;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer;white-space:nowrap;flex-shrink:0;">{btn_text}</button></div>'
 
     if not states_html:
         states_html = '<div style="text-align:center;color:#999;padding:40px;">ยังไม่มีแชท<br><small>เมื่อลูกค้าส่งข้อความ จะแสดงที่นี่</small></div>'
@@ -325,16 +333,13 @@ body{{margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,sans-serif
     2️⃣ ตอบลูกค้าใน LINE ได้เลย<br>
     3️⃣ กด <b>"▶️ เปิด Bot ทั้งหมด"</b> เมื่อเสร็จแล้ว
   </div>
-
   <div class="section-title">ควบคุมทุกห้องแชท</div>
   <div class="global-btns">
     <button class="btn btn-pause" onclick="pauseAll()">⏸ หยุด Bot ทั้งหมด</button>
     <button class="btn btn-resume" onclick="resumeAll()">▶️ เปิด Bot ทั้งหมด</button>
   </div>
-
   <div class="section-title">ห้องแชทที่ใช้งาน ({len(chat_states)} ห้อง)</div>
   <div id="states">{states_html}</div>
-
   <div style="text-align:center;margin:20px 0;">
     <button onclick="location.reload()" style="background:#f8f9fa;border:1px solid #ddd;border-radius:8px;padding:10px 24px;cursor:pointer;color:#666;font-size:14px;">🔄 รีเฟรช</button>
   </div>
@@ -350,16 +355,12 @@ async function controlBot(convId, action) {{
   }} catch(e) {{ alert('Network error'); }}
 }}
 async function pauseAll() {{
-  try {{
-    await fetch('/api/pause_all?token=' + token, {{method:'POST'}});
-    location.reload();
-  }} catch(e) {{ alert('Network error'); }}
+  try {{ await fetch('/api/pause_all?token=' + token, {{method:'POST'}}); location.reload(); }}
+  catch(e) {{ alert('Network error'); }}
 }}
 async function resumeAll() {{
-  try {{
-    await fetch('/api/resume_all?token=' + token, {{method:'POST'}});
-    location.reload();
-  }} catch(e) {{ alert('Network error'); }}
+  try {{ await fetch('/api/resume_all?token=' + token, {{method:'POST'}}); location.reload(); }}
+  catch(e) {{ alert('Network error'); }}
 }}
 </script>
 </body></html>"""
