@@ -21,10 +21,12 @@ ADMIN_TOKEN = os.environ.get('ADMIN_TOKEN', 'kasafety2024')
 
 claude_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-# เก็บ user_id ของลูกค้าแต่ละห้อง เพื่อใช้ตรวจสอบว่าใครเป็นลูกค้า
-# { conv_id: { 'customer_ids': set(), 'paused': bool } }
+# { conv_id: { 'paused': bool, 'admin_last_reply': float, 'customer_ids': [], 'display_name': str } }
 chat_states = {}
 last_webhook_events = []
+
+# Cache ชื่อโปรไฟล์ เพื่อไม่ต้องเรียก API บ่อย
+profile_cache = {}
 
 SYSTEM_PROMPT = """คุณคือผู้ช่วย AI ของบริษัท KA Safety and Engineering ที่ตอบคำถามเป็นภาษาไทย
 ข้อมูลหลักสูตรที่เปิดสอน:
@@ -53,39 +55,36 @@ def get_conv_id(source):
         return source.get('userId', 'unknown')
 
 
+def get_user_profile(user_id):
+    """ดึงชื่อโปรไฟล์จาก LINE API พร้อม cache"""
+    if user_id in profile_cache:
+        return profile_cache[user_id]
+    try:
+        url = f"https://api.line.me/v2/bot/profile/{user_id}"
+        headers = {"Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"}
+        resp = req.get(url, headers=headers, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            display_name = data.get('displayName', user_id)
+            profile_cache[user_id] = display_name
+            logger.info(f"Got profile: {user_id} -> {display_name}")
+            return display_name
+    except Exception as e:
+        logger.error(f"Profile fetch error: {e}")
+    return None
+
+
 def is_manually_paused(conv_id):
-    """ตรวจสอบว่า Admin กด Pause ด้วยมือหรือไม่"""
     state = chat_states.get(conv_id, {})
     return state.get('paused', False)
 
 
-def get_recent_messages(user_id, count=5):
-    """
-    ดึงข้อความล่าสุดจาก LINE Get Follow Stats API
-    ใช้ Insight API เพื่อดูว่ามีข้อความจาก OA ถูกส่งออกไปล่าสุดไหม
-    """
-    try:
-        url = f"https://api.line.me/v2/bot/message/quota/consumption"
-        headers = {"Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"}
-        resp = req.get(url, headers=headers, timeout=3)
-        return resp.status_code == 200
-    except Exception:
-        return False
-
-
-def check_admin_replied_recently(conv_id, customer_user_id, current_timestamp_ms):
-    """
-    ตรวจว่า Admin เพิ่งส่งข้อความในห้องนี้ก่อน event ปัจจุบันหรือเปล่า
-    โดยเช็คจาก admin_last_reply ที่เก็บไว้ใน chat_states
-    และเวลา cooldown 10 นาที
-    """
+def check_admin_replied_recently(conv_id):
     state = chat_states.get(conv_id, {})
     admin_last = state.get('admin_last_reply', 0)
     if admin_last <= 0:
         return False
-    # ถ้า Admin ตอบภายใน 10 นาที ให้ Bot หยุด
-    elapsed = time.time() - admin_last
-    return elapsed < 600
+    return (time.time() - admin_last) < 600
 
 
 def reply_line_message(reply_token, text):
@@ -103,22 +102,6 @@ def reply_line_message(reply_token, text):
     return resp
 
 
-def push_line_message(user_id, text):
-    """ส่งข้อความแบบ push (ไม่ต้องมี replyToken)"""
-    url = 'https://api.line.me/v2/bot/message/push'
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {LINE_CHANNEL_ACCESS_TOKEN}'
-    }
-    data = {
-        'to': user_id,
-        'messages': [{'type': 'text', 'text': text}]
-    }
-    resp = req.post(url, headers=headers, json=data, timeout=10)
-    logger.info(f"Push API: {resp.status_code}")
-    return resp
-
-
 @app.route("/webhook", methods=['POST'])
 def webhook():
     global last_webhook_events
@@ -132,8 +115,6 @@ def webhook():
     try:
         body_json = json.loads(body)
         events = body_json.get('events', [])
-
-        # เก็บ events ล่าสุดไว้ debug (เก็บแค่ 10)
         last_webhook_events = (events + last_webhook_events)[:10]
 
         for event in events:
@@ -142,43 +123,47 @@ def webhook():
             conv_id = get_conv_id(source)
             sender_user_id = source.get('userId', '')
             reply_token = event.get('replyToken', '')
-            timestamp_ms = event.get('timestamp', 0)
 
-            # Log ทุก event
             logger.info(f"EVENT type={ev_type} conv={conv_id} sender={sender_user_id}")
 
-            # สนใจเฉพาะ message event
             if ev_type != 'message':
                 continue
 
             msg = event.get('message', {})
             msg_type = msg.get('type', '')
 
-            # บันทึก sender ว่าเป็นลูกค้าของห้องนี้
+            # สร้าง state ถ้ายังไม่มี
             if conv_id not in chat_states:
                 chat_states[conv_id] = {
                     'paused': False,
                     'admin_last_reply': 0,
-                    'customer_ids': []
+                    'customer_ids': [],
+                    'display_name': None
                 }
 
-            # เพิ่ม sender เข้า customer_ids ถ้ายังไม่มี
+            # บันทึก sender เป็น customer
             if sender_user_id and sender_user_id not in chat_states[conv_id].get('customer_ids', []):
                 chat_states[conv_id].setdefault('customer_ids', []).append(sender_user_id)
 
-            # ตรวจสอบ chatMode (ถ้า LINE ส่งมา)
+            # ดึงชื่อโปรไฟล์ถ้ายังไม่มี
+            if sender_user_id and not chat_states[conv_id].get('display_name'):
+                name = get_user_profile(sender_user_id)
+                if name:
+                    chat_states[conv_id]['display_name'] = name
+
+            # ตรวจสอบ chatMode
             chat_mode = event.get('chatMode', '')
             if chat_mode == 'chat':
                 logger.info(f"chatMode=chat -> Admin handling, bot skip")
                 continue
 
-            # ตรวจสอบ Manual Pause (กดจาก Control Panel)
+            # ตรวจสอบ Manual Pause
             if is_manually_paused(conv_id):
                 logger.info(f"Manually paused conv={conv_id}, skip")
                 continue
 
             # ตรวจสอบ Admin cooldown
-            if check_admin_replied_recently(conv_id, sender_user_id, timestamp_ms):
+            if check_admin_replied_recently(conv_id):
                 elapsed = int(time.time() - chat_states[conv_id].get('admin_last_reply', 0))
                 logger.info(f"Admin replied {elapsed}s ago -> bot skip conv={conv_id}")
                 continue
@@ -212,35 +197,6 @@ def webhook():
     return 'OK'
 
 
-@app.route("/admin-replied", methods=['POST'])
-def admin_replied():
-    """
-    Admin เรียก endpoint นี้เพื่อบอกว่าเพิ่งตอบลูกค้าแล้ว
-    Bot จะหยุดตอบห้องนั้น 10 นาที
-    ใช้: POST /admin-replied?token=kasafety2024&conv_id=Uxxxxx
-    หรือไม่ระบุ conv_id เพื่อ cooldown ทุกห้อง
-    """
-    token = request.args.get('token', '')
-    if token != ADMIN_TOKEN:
-        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
-
-    conv_id = request.args.get('conv_id', '')
-    now = time.time()
-
-    if conv_id:
-        if conv_id not in chat_states:
-            chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': []}
-        chat_states[conv_id]['admin_last_reply'] = now
-        mins_left = 10
-        return jsonify({'ok': True, 'conv_id': conv_id, 'cooldown_minutes': mins_left})
-    else:
-        count = 0
-        for cid in chat_states:
-            chat_states[cid]['admin_last_reply'] = now
-            count += 1
-        return jsonify({'ok': True, 'action': 'all_rooms_cooldown', 'rooms_count': count})
-
-
 @app.route("/control")
 def control_panel():
     token = request.args.get('token', '')
@@ -256,23 +212,43 @@ def control_panel():
         cooldown_active = admin_last > 0 and (now - admin_last) < 600
         bot_paused = manual_paused or cooldown_active
 
+        # ชื่อที่แสดง: ใช้ display_name ถ้ามี, ไม่งั้นใช้ user_id ย่อ
+        display_name = state.get('display_name')
+        customer_ids = state.get('customer_ids', [])
+        if not display_name and customer_ids:
+            # ลอง fetch ชื่อ
+            display_name = get_user_profile(customer_ids[0])
+            if display_name:
+                state['display_name'] = display_name
+        
+        if display_name:
+            room_label = f'👤 {display_name}'
+        else:
+            short_id = conv_id[-8:]
+            room_label = f'...{short_id}'
+
         if cooldown_active:
             mins_left = int((600 - (now - admin_last)) / 60) + 1
             status = f'Admin ตอบล่าสุด (อีก {mins_left} นาที Bot กลับมา)'
-            color = '#e67e22'
+            status_color = '#e67e22'
         elif manual_paused:
             status = 'หยุดโดย Admin (ถาวร)'
-            color = '#e74c3c'
+            status_color = '#e74c3c'
         else:
             status = 'Bot ทำงานปกติ'
-            color = '#27ae60'
+            status_color = '#27ae60'
 
         action = 'resume' if bot_paused else 'pause'
         btn_text = 'เปิด Bot' if bot_paused else 'หยุด Bot'
         btn_color = '#27ae60' if bot_paused else '#e74c3c'
-        short_id = conv_id[-8:]
 
-        states_html += f'<div style="background:white;border-radius:12px;padding:16px;margin:10px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;"><div><div style="font-weight:bold;color:#333;">...{short_id}</div><div style="color:{color};font-size:13px;margin-top:4px;">● {status}</div></div><button onclick="controlBot(\'{conv_id}\',\'{action}\')" style="background:{btn_color};color:white;border:none;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer;">{btn_text}</button></div>'
+        states_html += f'''<div style="background:white;border-radius:12px;padding:16px;margin:10px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;gap:12px;">
+<div style="flex:1;min-width:0;">
+  <div style="font-weight:bold;color:#333;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{room_label}</div>
+  <div style="color:{status_color};font-size:13px;margin-top:4px;">● {status}</div>
+</div>
+<button onclick="controlBot(\'{conv_id}\',\'{action}\')" style="background:{btn_color};color:white;border:none;border-radius:8px;padding:10px 18px;font-size:14px;cursor:pointer;white-space:nowrap;flex-shrink:0;">{btn_text}</button>
+</div>'''
 
     if not states_html:
         states_html = '<div style="text-align:center;color:#999;padding:40px;">ยังไม่มีแชท<br><small>เมื่อลูกค้าส่งข้อความ จะแสดงที่นี่</small></div>'
@@ -291,7 +267,6 @@ body{{margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,sans-serif
 .section-title{{color:#666;font-size:13px;font-weight:bold;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.5px;}}
 .info-box{{background:#e8f4fd;border:1px solid #3498db;border-radius:10px;padding:14px;margin:10px 0;font-size:13px;line-height:1.6;}}
 .info-box b{{color:#2980b9;}}
-.step{{background:white;border-radius:10px;padding:12px 16px;margin:6px 0;font-size:13px;border-left:4px solid #06C755;}}
 </style></head>
 <body>
 <div class="header">
@@ -355,7 +330,7 @@ def api_pause():
     if not conv_id:
         return jsonify({'ok': False, 'error': 'missing conv_id'}), 400
     if conv_id not in chat_states:
-        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': []}
+        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': [], 'display_name': None}
     chat_states[conv_id]['paused'] = True
     return jsonify({'ok': True, 'conv_id': conv_id, 'paused': True})
 
@@ -369,7 +344,7 @@ def api_resume():
     if not conv_id:
         return jsonify({'ok': False, 'error': 'missing conv_id'}), 400
     if conv_id not in chat_states:
-        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': []}
+        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': [], 'display_name': None}
     chat_states[conv_id]['paused'] = False
     chat_states[conv_id]['admin_last_reply'] = 0
     return jsonify({'ok': True, 'conv_id': conv_id, 'paused': False})
@@ -404,6 +379,7 @@ def debug():
         admin_last = v.get('admin_last_reply', 0)
         cooldown_active = admin_last > 0 and (now - admin_last) < 600
         states_info[k] = {
+            'display_name': v.get('display_name'),
             'paused': v.get('paused', False),
             'cooldown_active': cooldown_active,
             'cooldown_secs_left': max(0, int(600 - (now - admin_last))) if cooldown_active else 0,
@@ -413,9 +389,9 @@ def debug():
     return jsonify({
         'status': 'ok',
         'chat_states': states_info,
+        'profile_cache': profile_cache,
         'last_webhook_events': last_webhook_events[:3],
-        'control_url': f'/control?token={ADMIN_TOKEN}',
-        'admin_replied_url': f'/admin-replied?token={ADMIN_TOKEN}&conv_id=CONV_ID_HERE'
+        'control_url': f'/control?token={ADMIN_TOKEN}'
     })
 
 
