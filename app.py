@@ -12,6 +12,9 @@ line_bot_api = LineBotApi(os.environ['LINE_CHANNEL_ACCESS_TOKEN'])
 handler = WebhookHandler(os.environ['LINE_CHANNEL_SECRET'])
 claude_client = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
 
+# Admin User IDs - Bot จะไม่ตอบข้อความจาก Admin
+ADMIN_USER_IDS = set(filter(None, os.environ.get('ADMIN_LINE_USER_ID', '').split(',')))
+
 
 @app.route("/webhook", methods=['POST'])
 def webhook():
@@ -26,10 +29,15 @@ def webhook():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    # ตรวจสอบ Chat Mode Switch
-    # เมื่อ Admin กด "เข้าร่วมแชท" ใน LINE OA Manager
-    # LINE จะส่ง deliveryContext.isRedelivery = false และ source จะมี chatMode
-    # โดย mode "chat" = Admin กำลังตอบ, mode "bot" = Bot ตอบ
+    # ตรวจสอบว่าผู้ส่งเป็น Admin หรือไม่
+    # เมื่อ Admin ตอบจาก chat.line.biz Bot จะไม่ตอบซ้ำ
+    sender_id = event.source.user_id if hasattr(event.source, 'user_id') else None
+
+    if sender_id and ADMIN_USER_IDS and sender_id in ADMIN_USER_IDS:
+        # ข้อความนี้มาจาก Admin ไม่ให้ Bot ตอบ
+        return
+
+    # ตรวจสอบ chatMode (สำหรับ LINE OA App บนมือถือ)
     try:
         body = request.get_data(as_text=True)
         body_json = json.loads(body)
@@ -38,8 +46,7 @@ def handle_message(event):
             if ev.get('replyToken') == event.reply_token:
                 chat_mode = ev.get('source', {}).get('chatMode', 'bot')
                 if chat_mode == 'chat':
-                    # Admin กำลังดูแลห้องแชทนี้ ไม่ให้ Claude ตอบ
-                    return
+                    return  # Admin กำลังดูแลอยู่ ไม่ให้ Claude ตอบ
     except Exception:
         pass
 
