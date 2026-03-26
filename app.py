@@ -5,6 +5,10 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import anthropic
 import os
 import json
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -20,6 +24,22 @@ ADMIN_USER_IDS = set(filter(None, os.environ.get('ADMIN_LINE_USER_ID', '').split
 def webhook():
     signature = request.headers['X-Line-Signature']
     body = request.get_data(as_text=True)
+    
+    # Log full webhook body for debugging
+    try:
+        body_json = json.loads(body)
+        logger.info("=== WEBHOOK RECEIVED ===")
+        logger.info(f"Full body: {json.dumps(body_json, ensure_ascii=False)}")
+        for ev in body_json.get('events', []):
+            src = ev.get('source', {})
+            logger.info(f"Event type: {ev.get('type')}, source type: {src.get('type')}, userId: {src.get('userId')}, chatMode: {src.get('chatMode')}")
+            if ev.get('type') == 'message':
+                msg = ev.get('message', {})
+                logger.info(f"Message text: {msg.get('text')}, replyToken: {ev.get('replyToken')}")
+        logger.info(f"ADMIN_USER_IDS configured: {ADMIN_USER_IDS}")
+    except Exception as e:
+        logger.error(f"Log error: {e}")
+    
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
@@ -30,11 +50,11 @@ def webhook():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     # ตรวจสอบว่าผู้ส่งเป็น Admin หรือไม่
-    # เมื่อ Admin ตอบจาก chat.line.biz Bot จะไม่ตอบซ้ำ
     sender_id = event.source.user_id if hasattr(event.source, 'user_id') else None
+    logger.info(f"handle_message called: sender_id={sender_id}, ADMIN_USER_IDS={ADMIN_USER_IDS}")
 
     if sender_id and ADMIN_USER_IDS and sender_id in ADMIN_USER_IDS:
-        # ข้อความนี้มาจาก Admin ไม่ให้ Bot ตอบ
+        logger.info(f"BLOCKED: sender {sender_id} is Admin, not responding")
         return
 
     # ตรวจสอบ chatMode (สำหรับ LINE OA App บนมือถือ)
@@ -45,12 +65,16 @@ def handle_message(event):
         for ev in events:
             if ev.get('replyToken') == event.reply_token:
                 chat_mode = ev.get('source', {}).get('chatMode', 'bot')
+                logger.info(f"chatMode detected: {chat_mode}")
                 if chat_mode == 'chat':
-                    return  # Admin กำลังดูแลอยู่ ไม่ให้ Claude ตอบ
-    except Exception:
-        pass
+                    logger.info("BLOCKED: chatMode is chat, Admin is handling")
+                    return
+    except Exception as e:
+        logger.error(f"chatMode check error: {e}")
 
     user_message = event.message.text
+    logger.info(f"Bot responding to: {user_message[:50]}")
+    
     response = claude_client.messages.create(
         model="claude-sonnet-4-5",
         max_tokens=1024,
