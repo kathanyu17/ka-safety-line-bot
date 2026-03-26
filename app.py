@@ -30,38 +30,41 @@ profile_cache = {}
 
 SYSTEM_PROMPT = """คุณคือผู้ช่วย AI ของบริษัท KA Safety and Engineering ที่ตอบคำถามเป็นภาษาไทย
 
-📌 ข้อมูลหลักสูตรที่เปิดสอน:
+กฎสำคัญมาก: ห้ามใช้ Markdown ทุกชนิดในการตอบ ห้ามใช้ ** สำหรับตัวหนา ห้ามใช้ # สำหรับหัวข้อ ห้ามใช้ --- สำหรับเส้นคั่น ตอบเป็นข้อความธรรมดาเท่านั้น ใช้อีโมจิแทนการจัดรูปแบบ
+
+ข้อมูลหลักสูตรที่เปิดสอน:
 
 🎓 หลักสูตร จป.หัวหน้างาน
 ⏱️ อบรม 2 วัน 12 ชั่วโมง
 มีให้บริการ 2 รูปแบบ:
 
 1️⃣ แบบ Public (รอบอบรมทั่วไป)
-   💰 ราคาท่านละ 2,300 บาท (ไม่รวม VAT 7%)
+💰 ราคาท่านละ 2,300 บาท (ไม่รวม VAT 7%)
 
 2️⃣ แบบ In-House (จัดอบรมภายในบริษัทลูกค้า)
-   📋 ราคาสามารถติดต่อเจ้าหน้าที่เพื่อขอใบเสนอราคาได้
-   📝 กรุณาแจ้งข้อมูลดังนี้:
-      • ชื่อบริษัท
-      • ที่อยู่บริษัท
-      • เลขที่ผู้เสียภาษีบริษัท
-      • ชื่อ-นามสกุล และเบอร์ติดต่อลูกค้า
+📋 ราคาสามารถติดต่อเจ้าหน้าที่เพื่อขอใบเสนอราคาได้
+📝 กรุณาแจ้งข้อมูลดังนี้:
+• ชื่อบริษัท
+• ที่อยู่บริษัท
+• เลขที่ผู้เสียภาษีบริษัท
+• ชื่อ-นามสกุล และเบอร์ติดต่อลูกค้า
 
 🎓 หลักสูตร จป.บริหาร และ คปอ.
-   📞 ติดต่อเจ้าหน้าที่เพื่อสอบถามรายละเอียดเพิ่มเติม
+📞 ติดต่อเจ้าหน้าที่เพื่อสอบถามรายละเอียดเพิ่มเติม
 
 📞 ข้อมูลติดต่อ:
-   โทร 094-565-9777, 088-221-2777
-   📧 E-mail: kasafety.sale@gmail.com
+โทร 094-565-9777, 088-221-2777
+📧 E-mail: kasafety.sale@gmail.com
 
-กรุณาตอบคำถามของลูกค้าอย่างสุภาพและเป็นประโยชน์
-เมื่อลูกค้าถามเรื่องหลักสูตร จป.หัวหน้างาน ให้แสดงข้อมูลราคาและรูปแบบการอบรมพร้อมอีโมจิให้ดูสวยงามและอ่านง่าย
-หากลูกค้าสนใจแบบ In-House ให้ขอข้อมูล ชื่อบริษัท ที่อยู่บริษัท เลขที่ผู้เสียภาษีบริษัท ชื่อ-นามสกุลและเบอร์ติดต่อลูกค้า
-หากคำถามไม่เกี่ยวข้องกับข้อมูลที่มี ให้ตอบตามความรู้ทั่วไปและแนะนำให้ติดต่อเจ้าหน้าที่หากต้องการข้อมูลเพิ่มเติม"""
+วิธีตอบที่ถูกต้อง:
+- ตอบเป็นข้อความธรรมดา ไม่มี ** ไม่มี # ไม่มี --- ทุกชนิด
+- ใช้อีโมจิและการขึ้นบรรทัดใหม่จัดรูปแบบให้สวยงามแทน
+- ตอบอย่างสุภาพ กระชับ และเป็นมิตร
+- หากลูกค้าสนใจแบบ In-House ให้ขอข้อมูลบริษัทครบถ้วน
+- หากคำถามไม่เกี่ยวข้องกับข้อมูลที่มี ให้แนะนำให้ติดต่อเจ้าหน้าที่"""
 
 
 def build_welcome_message(display_name):
-    """สร้างข้อความต้อนรับพร้อมชื่อลูกค้า"""
     name = display_name if display_name else "ลูกค้า"
     return (
         f"🌟 สวัสดีค่ะ ยินดีต้อนรับ คุณ{name} สู่ KA Safety 🌟\n\n"
@@ -96,7 +99,6 @@ def get_conv_id(source):
 
 
 def get_user_profile(user_id):
-    """ดึงชื่อโปรไฟล์จาก LINE API พร้อม cache"""
     if user_id in profile_cache:
         return profile_cache[user_id]
     try:
@@ -112,6 +114,23 @@ def get_user_profile(user_id):
     except Exception as e:
         logger.error(f"Profile fetch error: {e}")
     return None
+
+
+def clean_markdown(text):
+    """ลบ Markdown ออกจากข้อความที่ Claude ตอบมา"""
+    import re
+    # ลบ ** (bold)
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    # ลบ * (italic/bullet)
+    text = re.sub(r'(?m)^\s*\*\s+', '• ', text)
+    text = text.replace('*', '')
+    # ลบ ### ## # (headings) ที่ต้นบรรทัด
+    text = re.sub(r'(?m)^#{1,6}\s*', '', text)
+    # ลบ --- (horizontal rule)
+    text = re.sub(r'(?m)^-{3,}\s*$', '', text)
+    # ลบบรรทัดว่างซ้อนกันเกิน 2 บรรทัด
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
 
 
 def is_manually_paused(conv_id):
@@ -166,7 +185,6 @@ def webhook():
 
             logger.info(f"EVENT type={ev_type} conv={conv_id} sender={sender_user_id}")
 
-            # --- follow event ---
             if ev_type == 'follow':
                 display_name = get_user_profile(sender_user_id) if sender_user_id else None
                 welcome_msg = build_welcome_message(display_name)
@@ -226,7 +244,6 @@ def webhook():
             user_text = msg.get('text', '').strip()
             display_name = chat_states[conv_id].get('display_name', '')
 
-            # ข้อความต้อนรับครั้งแรก
             if not chat_states[conv_id].get('greeted', False):
                 chat_states[conv_id]['greeted'] = True
                 welcome_msg = build_welcome_message(display_name)
@@ -234,7 +251,6 @@ def webhook():
                 logger.info(f"Sent welcome message to {conv_id}")
                 continue
 
-            # ตอบด้วย Claude
             logger.info(f"Bot responding to: {user_text[:60]}")
             try:
                 resp = claude_client.messages.create(
@@ -244,6 +260,8 @@ def webhook():
                     messages=[{"role": "user", "content": user_text}]
                 )
                 reply_text = resp.content[0].text
+                # ลบ Markdown ที่อาจหลุดมา
+                reply_text = clean_markdown(reply_text)
                 reply_line_message(reply_token, reply_text)
                 logger.info(f"Bot replied successfully")
 
@@ -317,7 +335,7 @@ body{{margin:0;padding:0;background:#f0f4f8;font-family:-apple-system,sans-serif
 .global-btns{{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;}}
 .btn{{padding:14px;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;color:white;}}
 .btn-pause{{background:#e74c3c;}}.btn-resume{{background:#27ae60;}}
-.section-title{{color:#666;font-size:13px;font-weight:bold;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.5px;}}
+.section-title{{color:#666;font-size:13px;font-weight:bold;margin:16px 0 8px;}}
 .info-box{{background:#e8f4fd;border:1px solid #3498db;border-radius:10px;padding:14px;margin:10px 0;font-size:13px;line-height:1.6;}}
 .info-box b{{color:#2980b9;}}
 </style></head>
