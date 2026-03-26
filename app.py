@@ -37,10 +37,8 @@ SYSTEM_PROMPT = """คุณคือผู้ช่วย AI ของบริ
 🎓 หลักสูตร จป.หัวหน้างาน
 ⏱️ อบรม 2 วัน 12 ชั่วโมง
 มีให้บริการ 2 รูปแบบ:
-
 1️⃣ แบบ Public (รอบอบรมทั่วไป)
 💰 ราคาท่านละ 2,300 บาท (ไม่รวม VAT 7%)
-
 2️⃣ แบบ In-House (จัดอบรมภายในบริษัทลูกค้า)
 📋 ราคาสามารถติดต่อเจ้าหน้าที่เพื่อขอใบเสนอราคาได้
 📝 กรุณาแจ้งข้อมูลดังนี้:
@@ -49,11 +47,24 @@ SYSTEM_PROMPT = """คุณคือผู้ช่วย AI ของบริ
 • เลขที่ผู้เสียภาษีบริษัท
 • ชื่อ-นามสกุล และเบอร์ติดต่อลูกค้า
 
-🎓 หลักสูตร จป.บริหาร และ คปอ.
+🎓 หลักสูตร จป.บริหาร
+👔 คุณสมบัติผู้เข้าอบรม: ลูกจ้างระดับบริหาร / ผู้จัดการ / นายจ้าง
+⏱️ อบรม 2 วัน 12 ชั่วโมง
+มีให้บริการ 2 รูปแบบ:
+1️⃣ แบบ Public (รอบอบรมทั่วไป)
+💰 ราคาท่านละ 2,300 บาท (ไม่รวม VAT 7%)
+2️⃣ แบบ In-House (จัดอบรมภายในบริษัทลูกค้า)
+📋 ราคาสามารถติดต่อเจ้าหน้าที่เพื่อขอใบเสนอราคาได้
+📝 กรุณาแจ้งข้อมูลดังนี้:
+• ชื่อบริษัท
+• ที่อยู่บริษัท
+• เลขที่ผู้เสียภาษีบริษัท
+• ชื่อ-นามสกุล และเบอร์ติดต่อลูกค้า
+
+🎓 หลักสูตร คปอ.
 📞 ติดต่อเจ้าหน้าที่เพื่อสอบถามรายละเอียดเพิ่มเติม
 
-📞 ข้อมูลติดต่อ:
-โทร 094-565-9777, 088-221-2777
+📞 ข้อมูลติดต่อ: โทร 094-565-9777, 088-221-2777
 📧 E-mail: kasafety.sale@gmail.com
 
 วิธีตอบที่ถูกต้อง:
@@ -70,15 +81,15 @@ def build_welcome_message(display_name):
         f"🌟 สวัสดีค่ะ ยินดีต้อนรับ คุณ{name} สู่ KA Safety 🌟\n\n"
         f"🙏 ขอบคุณที่ติดต่อเข้ามานะคะ\n\n"
         f"📋 ลูกค้าสามารถแจ้งบริการที่ต้องการ\n"
-        f"    หรือ ฝากข้อมูลติดต่อกลับได้เลยค่ะ\n\n"
+        f" หรือ ฝากข้อมูลติดต่อกลับได้เลยค่ะ\n\n"
         f"⏰ เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุด\n"
-        f"    ภายใน 24 ชม. ในวันและเวลาทำการนะคะ\n\n"
+        f" ภายใน 24 ชม. ในวันและเวลาทำการนะคะ\n\n"
         f"💼 บริการของเรา:\n"
-        f"    ✅ หลักสูตร จป.หัวหน้างาน\n"
-        f"    ✅ หลักสูตร จป.บริหาร\n"
-        f"    ✅ หลักสูตร คปอ.\n\n"
+        f" ✅ หลักสูตร จป.หัวหน้างาน\n"
+        f" ✅ หลักสูตร จป.บริหาร\n"
+        f" ✅ หลักสูตร คปอ.\n\n"
         f"📞 ติดต่อด่วน: 094-565-9777\n"
-        f"                    088-221-2777\n\n"
+        f" 088-221-2777\n\n"
         f"มีอะไรให้ช่วยเหลือได้เลยนะคะ 😊"
     )
 
@@ -264,7 +275,6 @@ def webhook():
                 reply_text = clean_markdown(reply_text)
                 reply_line_message(reply_token, reply_text)
                 logger.info(f"Bot replied successfully")
-
             except Exception as e:
                 logger.error(f"Claude error: {e}")
 
@@ -284,7 +294,6 @@ def control_panel():
 
     now = time.time()
     states_html = ''
-
     for conv_id, state in chat_states.items():
         manual_paused = state.get('paused', False)
         admin_last = state.get('admin_last_reply', 0)
@@ -373,12 +382,16 @@ async function controlBot(convId, action) {{
   }} catch(e) {{ alert('Network error'); }}
 }}
 async function pauseAll() {{
-  try {{ await fetch('/api/pause_all?token=' + token, {{method:'POST'}}); location.reload(); }}
-  catch(e) {{ alert('Network error'); }}
+  try {{
+    await fetch('/api/pause_all?token=' + token, {{method:'POST'}});
+    location.reload();
+  }} catch(e) {{ alert('Network error'); }}
 }}
 async function resumeAll() {{
-  try {{ await fetch('/api/resume_all?token=' + token, {{method:'POST'}}); location.reload(); }}
-  catch(e) {{ alert('Network error'); }}
+  try {{
+    await fetch('/api/resume_all?token=' + token, {{method:'POST'}});
+    location.reload();
+  }} catch(e) {{ alert('Network error'); }}
 }}
 </script>
 </body></html>"""
