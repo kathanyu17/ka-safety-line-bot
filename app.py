@@ -4,6 +4,7 @@ from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 import anthropic
 import os
+import json
 
 app = Flask(__name__)
 
@@ -25,6 +26,23 @@ def webhook():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    # ตรวจสอบ Chat Mode Switch
+    # เมื่อ Admin กด "เข้าร่วมแชท" ใน LINE OA Manager
+    # LINE จะส่ง deliveryContext.isRedelivery = false และ source จะมี chatMode
+    # โดย mode "chat" = Admin กำลังตอบ, mode "bot" = Bot ตอบ
+    try:
+        body = request.get_data(as_text=True)
+        body_json = json.loads(body)
+        events = body_json.get('events', [])
+        for ev in events:
+            if ev.get('replyToken') == event.reply_token:
+                chat_mode = ev.get('source', {}).get('chatMode', 'bot')
+                if chat_mode == 'chat':
+                    # Admin กำลังดูแลห้องแชทนี้ ไม่ให้ Claude ตอบ
+                    return
+    except Exception:
+        pass
+
     user_message = event.message.text
     response = claude_client.messages.create(
         model="claude-sonnet-4-5",
