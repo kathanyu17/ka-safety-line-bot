@@ -21,11 +21,11 @@ ADMIN_TOKEN = os.environ.get('ADMIN_TOKEN', 'kasafety2024')
 
 claude_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-# { conv_id: { 'paused': bool, 'admin_last_reply': float, 'customer_ids': [], 'display_name': str } }
+# { conv_id: { 'paused': bool, 'admin_last_reply': float, 'customer_ids': [], 'display_name': str, 'greeted': bool } }
 chat_states = {}
 last_webhook_events = []
 
-# Cache ชื่อโปรไฟล์ เพื่อไม่ต้องเรียก API บ่อย
+# Cache ชื่อโปรไฟล์
 profile_cache = {}
 
 SYSTEM_PROMPT = """คุณคือผู้ช่วย AI ของบริษัท KA Safety and Engineering ที่ตอบคำถามเป็นภาษาไทย
@@ -38,6 +38,26 @@ SYSTEM_PROMPT = """คุณคือผู้ช่วย AI ของบริ
 - E-mail: kasafety.sale@gmail.com
 กรุณาตอบคำถามของลูกค้าอย่างสุภาพและเป็นประโยชน์ โดยอ้างอิงข้อมูลด้านบนในการตอบ
 หากคำถามไม่เกี่ยวข้องกับข้อมูลที่มี ให้ตอบตามความรู้ทั่วไปและแนะนำให้ติดต่อเจ้าหน้าที่หากต้องการข้อมูลเพิ่มเติม"""
+
+
+def build_welcome_message(display_name):
+    """สร้างข้อความต้อนรับพร้อมชื่อลูกค้า"""
+    name = display_name if display_name else "ลูกค้า"
+    return (
+        f"🌟 สวัสดีค่ะ ยินดีต้อนรับ คุณ{name} สู่ KA Safety 🌟\n\n"
+        f"🙏 ขอบคุณที่ติดต่อเข้ามานะคะ\n\n"
+        f"📋 ลูกค้าสามารถแจ้งบริการที่ต้องการ\n"
+        f"    หรือ ฝากข้อมูลติดต่อกลับได้เลยค่ะ\n\n"
+        f"⏰ เจ้าหน้าที่จะติดต่อกลับโดยเร็วที่สุด\n"
+        f"    ภายใน 24 ชม. ในวันและเวลาทำการนะคะ\n\n"
+        f"💼 บริการของเรา:\n"
+        f"    ✅ หลักสูตร จป.หัวหน้างาน\n"
+        f"    ✅ หลักสูตร จป.บริหาร\n"
+        f"    ✅ หลักสูตร คปอ.\n\n"
+        f"📞 ติดต่อด่วน: 094-565-9777\n"
+        f"                    088-221-2777\n\n"
+        f"มีอะไรให้ช่วยเหลือได้เลยนะคะ 😊"
+    )
 
 
 def verify_signature(body, signature):
@@ -65,7 +85,7 @@ def get_user_profile(user_id):
         resp = req.get(url, headers=headers, timeout=5)
         if resp.status_code == 200:
             data = resp.json()
-            display_name = data.get('displayName', user_id)
+            display_name = data.get('displayName', '')
             profile_cache[user_id] = display_name
             logger.info(f"Got profile: {user_id} -> {display_name}")
             return display_name
@@ -126,6 +146,24 @@ def webhook():
 
             logger.info(f"EVENT type={ev_type} conv={conv_id} sender={sender_user_id}")
 
+            # --- จัดการ follow event (ลูกค้า add เพื่อน) ---
+            if ev_type == 'follow':
+                display_name = get_user_profile(sender_user_id) if sender_user_id else None
+                welcome_msg = build_welcome_message(display_name)
+                # ใช้ push message สำหรับ follow event (ไม่มี replyToken)
+                push_url = 'https://api.line.me/v2/bot/message/push'
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {LINE_CHANNEL_ACCESS_TOKEN}'
+                }
+                push_data = {
+                    'to': sender_user_id,
+                    'messages': [{'type': 'text', 'text': welcome_msg}]
+                }
+                req.post(push_url, headers=headers, json=push_data, timeout=10)
+                logger.info(f"Sent follow welcome to {sender_user_id}")
+                continue
+
             if ev_type != 'message':
                 continue
 
@@ -138,14 +176,14 @@ def webhook():
                     'paused': False,
                     'admin_last_reply': 0,
                     'customer_ids': [],
-                    'display_name': None
+                    'display_name': None,
+                    'greeted': False
                 }
 
-            # บันทึก sender เป็น customer
+            # บันทึก sender และดึงชื่อ
             if sender_user_id and sender_user_id not in chat_states[conv_id].get('customer_ids', []):
                 chat_states[conv_id].setdefault('customer_ids', []).append(sender_user_id)
 
-            # ดึงชื่อโปรไฟล์ถ้ายังไม่มี
             if sender_user_id and not chat_states[conv_id].get('display_name'):
                 name = get_user_profile(sender_user_id)
                 if name:
@@ -168,13 +206,22 @@ def webhook():
                 logger.info(f"Admin replied {elapsed}s ago -> bot skip conv={conv_id}")
                 continue
 
-            # ตอบเฉพาะ text message
             if msg_type != 'text' or not reply_token:
                 continue
 
             user_text = msg.get('text', '').strip()
-            logger.info(f"Bot responding to: {user_text[:60]}")
+            display_name = chat_states[conv_id].get('display_name', '')
 
+            # --- ส่งข้อความต้อนรับครั้งแรก ---
+            if not chat_states[conv_id].get('greeted', False):
+                chat_states[conv_id]['greeted'] = True
+                welcome_msg = build_welcome_message(display_name)
+                reply_line_message(reply_token, welcome_msg)
+                logger.info(f"Sent welcome message to {conv_id}")
+                continue
+
+            # --- ตอบคำถามปกติด้วย Claude ---
+            logger.info(f"Bot responding to: {user_text[:60]}")
             try:
                 resp = claude_client.messages.create(
                     model="claude-sonnet-4-5",
@@ -212,15 +259,13 @@ def control_panel():
         cooldown_active = admin_last > 0 and (now - admin_last) < 600
         bot_paused = manual_paused or cooldown_active
 
-        # ชื่อที่แสดง: ใช้ display_name ถ้ามี, ไม่งั้นใช้ user_id ย่อ
         display_name = state.get('display_name')
         customer_ids = state.get('customer_ids', [])
         if not display_name and customer_ids:
-            # ลอง fetch ชื่อ
             display_name = get_user_profile(customer_ids[0])
             if display_name:
                 state['display_name'] = display_name
-        
+
         if display_name:
             room_label = f'👤 {display_name}'
         else:
@@ -330,7 +375,7 @@ def api_pause():
     if not conv_id:
         return jsonify({'ok': False, 'error': 'missing conv_id'}), 400
     if conv_id not in chat_states:
-        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': [], 'display_name': None}
+        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': [], 'display_name': None, 'greeted': False}
     chat_states[conv_id]['paused'] = True
     return jsonify({'ok': True, 'conv_id': conv_id, 'paused': True})
 
@@ -344,7 +389,7 @@ def api_resume():
     if not conv_id:
         return jsonify({'ok': False, 'error': 'missing conv_id'}), 400
     if conv_id not in chat_states:
-        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': [], 'display_name': None}
+        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': [], 'display_name': None, 'greeted': False}
     chat_states[conv_id]['paused'] = False
     chat_states[conv_id]['admin_last_reply'] = 0
     return jsonify({'ok': True, 'conv_id': conv_id, 'paused': False})
@@ -380,6 +425,7 @@ def debug():
         cooldown_active = admin_last > 0 and (now - admin_last) < 600
         states_info[k] = {
             'display_name': v.get('display_name'),
+            'greeted': v.get('greeted', False),
             'paused': v.get('paused', False),
             'cooldown_active': cooldown_active,
             'cooldown_secs_left': max(0, int(600 - (now - admin_last))) if cooldown_active else 0,
