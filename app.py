@@ -29,7 +29,18 @@ def handle_message(event):
     response = claude_client.messages.create(
         model="claude-sonnet-4-5",
         max_tokens=1024,
-        system="You are a helpful AI assistant for KA Safety. Answer questions about the business in Thai language.",
+        system="""คุณคือผู้ช่วย AI ของบริษัท KA Safety and Engineering ที่ตอบคำถามเป็นภาษาไทย
+
+ข้อมูลหลักสูตรที่เปิดสอน:
+- หลักสูตร จป.หัวหน้างาน / จป.บริหาร / คปอ.
+- ระยะเวลาอบรม: 2 วัน 12 ชั่วโมง
+- คุณสมบัติผู้เข้าอบรม: เป็นลูกจ้างระดับหัวหน้างานหรือผู้บังคับบัญชา
+
+ข้อมูลติดต่อ:
+- โทร 094-565-9777, 088-221-2777
+- E-mail: kasafety.sale@gmail.com
+
+กรุณาตอบคำถามของลูกค้าอย่างสุภาพและเป็นประโยชน์ โดยอ้างอิงข้อมูลด้านบนในการตอบ หากคำถามไม่เกี่ยวข้องกับข้อมูลที่มี ให้ตอบตามความรู้ทั่วไปและแนะนำให้ติดต่อเจ้าหน้าที่หากต้องการข้อมูลเพิ่มเติม""",
         messages=[{"role": "user", "content": user_message}]
     )
     reply_text = response.content[0].text
