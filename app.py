@@ -357,7 +357,9 @@ def webhook():
                     'admin_last_reply': 0,
                     'customer_ids': [],
                     'display_name': None,
-                    'greeted': False
+                    'greeted': False,
+                    'bot_replied': False,
+                    'admin_replied': False
                 }
             if sender_user_id and sender_user_id not in chat_states[conv_id].get('customer_ids', []):
                 chat_states[conv_id].setdefault('customer_ids', []).append(sender_user_id)
@@ -367,6 +369,8 @@ def webhook():
                     chat_states[conv_id]['display_name'] = name
             chat_mode = event.get('chatMode', '')
             if chat_mode == 'chat':
+                chat_states[conv_id]['admin_replied'] = True
+                chat_states[conv_id]['bot_replied'] = False
                 continue
             if is_manually_paused(conv_id):
                 continue
@@ -381,6 +385,7 @@ def webhook():
                 if not has_service_keyword(user_text):
                     welcome_msg = build_welcome_message(display_name)
                     reply_line_message(reply_token, welcome_msg)
+                    chat_states[conv_id]['bot_replied'] = True
                     continue
             try:
                 resp = claude_client.messages.create(
@@ -392,6 +397,8 @@ def webhook():
                 reply_text = resp.content[0].text
                 reply_text = clean_markdown(reply_text)
                 reply_line_message(reply_token, reply_text)
+                chat_states[conv_id]['bot_replied'] = True
+                chat_states[conv_id]['admin_replied'] = False
             except Exception as e:
                 logger.error("Claude error: " + str(e))
     except Exception as e:
@@ -424,6 +431,9 @@ def control_panel():
         else:
             short_id = conv_id[-8:]
             room_label = '...' + short_id
+        if bot_replied_only:
+            room_label = '🔴 ' + room_label
+        bot_replied_only = state.get('bot_replied', False) and not state.get('admin_replied', False)
         if cooldown_active:
             mins_left = int((600 - (now - admin_last)) / 60) + 1
             status = 'Admin ตอบล่าสุด (อีก ' + str(mins_left) + ' นาที Bot กลับมา)'
@@ -444,7 +454,8 @@ def control_panel():
             'align-items:center;gap:12px;">'
             '<div style="flex:1;min-width:0;">'
             '<div style="font-weight:bold;color:#333;font-size:16px;">' + room_label + '</div>'
-            '<div style="color:' + status_color + ';font-size:13px;margin-top:4px;">● ' + status + '</div>'
+            '<div style="color:' + status_color + ';font-size:13px;margin-top:4px;">● ' + status + '</div>' +
+('<div style="color:#e74c3c;font-size:12px;margin-top:2px;">🔴 รอ Admin ดำเนินการ</div>' if bot_replied_only else '')
             '</div>'
             '<button onclick="controlBot(\'' + safe_conv_id + '\',\'' + action + '\')" '
             'style="background:' + btn_color + ';color:white;border:none;border-radius:8px;'
@@ -511,7 +522,7 @@ def api_pause():
     if not conv_id:
         return jsonify({'ok': False, 'error': 'missing conv_id'}), 400
     if conv_id not in chat_states:
-        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': [], 'display_name': None, 'greeted': False}
+        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': [], 'display_name': None, 'greeted': False, 'bot_replied': False, 'admin_replied': False}
     chat_states[conv_id]['paused'] = True
     return jsonify({'ok': True, 'conv_id': conv_id, 'paused': True})
 
@@ -525,9 +536,11 @@ def api_resume():
     if not conv_id:
         return jsonify({'ok': False, 'error': 'missing conv_id'}), 400
     if conv_id not in chat_states:
-        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': [], 'display_name': None, 'greeted': False}
+        chat_states[conv_id] = {'paused': False, 'admin_last_reply': 0, 'customer_ids': [], 'display_name': None, 'greeted': False, 'bot_replied': False, 'admin_replied': False}
     chat_states[conv_id]['paused'] = False
     chat_states[conv_id]['admin_last_reply'] = 0
+    chat_states[conv_id]['admin_replied'] = True
+    chat_states[conv_id]['bot_replied'] = False
     return jsonify({'ok': True, 'conv_id': conv_id, 'paused': False})
 
 
