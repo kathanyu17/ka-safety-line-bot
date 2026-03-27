@@ -369,8 +369,9 @@ def webhook():
                     chat_states[conv_id]['display_name'] = name
             chat_mode = event.get('chatMode', '')
             if chat_mode == 'chat':
-                chat_states[conv_id]['admin_replied'] = True
-                chat_states[conv_id]['bot_replied'] = False
+                if conv_id in chat_states:
+                    chat_states[conv_id]['admin_replied'] = True
+                    chat_states[conv_id]['bot_replied'] = False
                 continue
             if is_manually_paused(conv_id):
                 continue
@@ -431,9 +432,9 @@ def control_panel():
         else:
             short_id = conv_id[-8:]
             room_label = '...' + short_id
+        bot_replied_only = state.get('bot_replied', False) and not state.get('admin_replied', False)
         if bot_replied_only:
             room_label = '🔴 ' + room_label
-        bot_replied_only = state.get('bot_replied', False) and not state.get('admin_replied', False)
         if cooldown_active:
             mins_left = int((600 - (now - admin_last)) / 60) + 1
             status = 'Admin ตอบล่าสุด (อีก ' + str(mins_left) + ' นาที Bot กลับมา)'
