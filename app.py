@@ -456,7 +456,7 @@ def control_panel():
             '<div style="flex:1;min-width:0;">'
             '<div style="font-weight:bold;color:#333;font-size:16px;">' + room_label + '</div>'
             '<div style="color:' + status_color + ';font-size:13px;margin-top:4px;">● ' + status + '</div>' +
-('<div style="color:#e74c3c;font-size:12px;margin-top:2px;">🔴 รอ Admin ดำเนินการ</div>' if bot_replied_only else '')
+('<div style="color:#e74c3c;font-size:12px;margin-top:2px;">🔴 รอ Admin ดำเนินการ</div>' if bot_replied_only else '') +
             '</div>'
             '<button onclick="controlBot(\'' + safe_conv_id + '\',\'' + action + '\')" '
             'style="background:' + btn_color + ';color:white;border:none;border-radius:8px;'
