@@ -3,7 +3,7 @@ import anthropic
 import os
 import json
 import logging
-import timeh
+import time
 import hashlib
 import hmac
 import base64
