@@ -256,6 +256,19 @@ def get_user_profile(user_id):
     return None
 
 
+def has_service_keyword(text):
+    keywords = [
+        'จป', 'cpor', 'คปอ', 'ไฟฟ้า', 'forklift', 'โฟล์คลิฟท์', 'รถยก',
+        'ปั้นจั่น', 'เครน', 'นั่งร้าน', 'first aid', 'firstaid', 'cpr',
+        'ปฐมพยาบาล', 'working at height', 'ที่สูง', 'ใบเสนอราคา', 'quotation',
+        'quote', 'เสนอราคา', 'ราคา', 'อบรม', 'หลักสูตร', 'training',
+        'ตรวจรับรอง', 'ตรวจสอบ', 'ระบบไฟฟ้า', 'อาคาร', 'สมัคร', 'ลงทะเบียน',
+        'in-house', 'inhouse', 'อินเฮ้าส์', 'บริการ', 'service'
+    ]
+    text_lower = text.lower()
+    return any(kw in text_lower for kw in keywords)
+
+
 def clean_markdown(text):
     text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
     text = re.sub(r'(?m)^\s*\*\s+', '- ', text)
@@ -358,9 +371,10 @@ def webhook():
             display_name = chat_states[conv_id].get('display_name', '')
             if not chat_states[conv_id].get('greeted', False):
                 chat_states[conv_id]['greeted'] = True
-                welcome_msg = build_welcome_message(display_name)
-                reply_line_message(reply_token, welcome_msg)
-                continue
+                if not has_service_keyword(user_text):
+                    welcome_msg = build_welcome_message(display_name)
+                    reply_line_message(reply_token, welcome_msg)
+                    continue
             try:
                 resp = claude_client.messages.create(
                     model="claude-sonnet-4-5",
