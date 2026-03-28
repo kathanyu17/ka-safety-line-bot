@@ -403,6 +403,11 @@ def webhook():
                     reply_line_message(reply_token, welcome_msg)
                     chat_states[conv_id]['bot_replied'] = True
                     continue
+            elif not has_service_keyword(user_text):
+                welcome_msg = build_welcome_message(display_name)
+                reply_line_message(reply_token, welcome_msg)
+                chat_states[conv_id]['bot_replied'] = True
+                continue
             try:
                 resp = claude_client.messages.create(
                     model="claude-3-5-sonnet-20241022",
