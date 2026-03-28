@@ -388,7 +388,6 @@ def webhook():
                 if conv_id in chat_states:
                     chat_states[conv_id]['admin_replied'] = True
                     chat_states[conv_id]['bot_replied'] = False
-                continue
             if is_manually_paused(conv_id):
                 continue
             if check_admin_replied_recently(conv_id):
@@ -406,7 +405,7 @@ def webhook():
                     continue
             try:
                 resp = claude_client.messages.create(
-                    model="claude-sonnet-4-5",
+                    model="claude-3-5-sonnet-20241022",
                     max_tokens=1024,
                     system=SYSTEM_PROMPT,
                     messages=[{"role": "user", "content": user_text}]
@@ -418,6 +417,10 @@ def webhook():
                 chat_states[conv_id]['admin_replied'] = False
             except Exception as e:
                 logger.error("Claude error: " + str(e))
+                try:
+                    reply_line_message(reply_token, "ขออภัยค่ะ ระบบขัดข้องชั่วคราว กรุณาติดต่อเจ้าหน้าที่ที่ 094-565-9777 หรือ 088-221-2777 ค่ะ")
+                except Exception:
+                    pass
     except Exception as e:
         logger.error("Webhook error: " + str(e))
         import traceback
