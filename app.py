@@ -447,25 +447,25 @@ def control_panel():
             if display_name:
                 state['display_name'] = display_name
         if display_name:
-            room_label = 'Ã°ÂÂÂ¤ ' + display_name
+            room_label = '\u{1F464} ' + display_name
         else:
             short_id = conv_id[-8:]
             room_label = '...' + short_id
         bot_replied_only = state.get('bot_replied', False) and not state.get('admin_replied', False)
         if bot_replied_only:
-            room_label = 'Ã°ÂÂÂ´ ' + room_label
+            room_label = '\u{1F534} ' + room_label
         if cooldown_active:
             mins_left = int((600 - (now - admin_last)) / 60) + 1
-            status = 'Admin Ã Â¸ÂÃ Â¸Â­Ã Â¸ÂÃ Â¸Â¥Ã Â¹ÂÃ Â¸Â²Ã Â¸ÂªÃ Â¸Â¸Ã Â¸Â (Ã Â¸Â­Ã Â¸ÂµÃ Â¸Â ' + str(mins_left) + ' Ã Â¸ÂÃ Â¸Â²Ã Â¸ÂÃ Â¸Âµ Bot Ã Â¸ÂÃ Â¸Â¥Ã Â¸Â±Ã Â¸ÂÃ Â¸Â¡Ã Â¸Â²)'
+            status = 'Admin \u0e15\u0e2d\u0e1a\u0e25\u0e48\u0e32\u0e2a\u0e38\u0e14 (\u0e2d\u0e35\u0e01 ' + str(mins_left) + ' \u0e19\u0e32\u0e17\u0e35 Bot \u0e01\u0e25\u0e31\u0e1a\u0e21\u0e32)'
             status_color = '#e67e22'
         elif manual_paused:
-            status = 'Ã Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸ÂÃ Â¹ÂÃ Â¸ÂÃ Â¸Â¢ Admin (Ã Â¸ÂÃ Â¸Â²Ã Â¸Â§Ã Â¸Â£)'
+            status = '\u0e2b\u0e22\u0e38\u0e14\u0e42\u0e14\u0e22 Admin (\u0e16\u0e32\u0e27\u0e23)'
             status_color = '#e74c3c'
         else:
-            status = 'Bot Ã Â¸ÂÃ Â¸Â³Ã Â¸ÂÃ Â¸Â²Ã Â¸ÂÃ Â¸ÂÃ Â¸ÂÃ Â¸ÂÃ Â¸Â´'
+            status = 'Bot \u0e17\u0e33\u0e07\u0e32\u0e19\u0e1b\u0e01\u0e15\u0e34'
             status_color = '#27ae60'
         action = 'resume' if bot_paused else 'pause'
-        btn_text = 'Ã Â¹ÂÃ Â¸ÂÃ Â¸Â´Ã Â¸Â Bot' if bot_paused else 'Ã Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸Â Bot'
+        btn_text = '\u0e40\u0e1b\u0e34\u0e14 Bot' if bot_paused else '\u0e2b\u0e22\u0e38\u0e14 Bot'
         btn_color = '#27ae60' if bot_paused else '#e74c3c'
         safe_conv_id = conv_id.replace("'", "\\'")
         states_html += (
@@ -474,17 +474,16 @@ def control_panel():
             'align-items:center;gap:12px;">'
             '<div style="flex:1;min-width:0;">'
             '<div style="font-weight:bold;color:#333;font-size:16px;">' + room_label + '</div>'
-            '<div style="color:' + status_color + ';font-size:13px;margin-top:4px;">Ã¢ÂÂ ' + status + '</div>' +
-('<div style="color:#e74c3c;font-size:12px;margin-top:2px;">Ã°ÂÂÂ´ Ã Â¸Â£Ã Â¸Â­ Admin Ã Â¸ÂÃ Â¸Â³Ã Â¹ÂÃ Â¸ÂÃ Â¸Â´Ã Â¸ÂÃ Â¸ÂÃ Â¸Â²Ã Â¸Â£</div>' if bot_replied_only else '') +
-            '</div>'
+            '<div style="color:' + status_color + ';font-size:13px;margin-top:4px;">\u25cf ' + status + '</div>'
+            + ('<div style="color:#e74c3c;font-size:12px;margin-top:2px;">\u{1F534} \u0e23\u0e2d Admin \u0e14\u0e33\u0e40\u0e19\u0e34\u0e19\u0e01\u0e32\u0e23</div>' if bot_replied_only else '')
+            + '</div>'
             '<button onclick="controlBot(\'' + safe_conv_id + '\',\'' + action + '\')" '
             'style="background:' + btn_color + ';color:white;border:none;border-radius:8px;'
-            'padding:10px 18px;font-size:14px;cursor:pointer;">'
-            + btn_text + '</button>'
+            'padding:10px 18px;font-size:14px;cursor:pointer;">' + btn_text + '</button>'
             '</div>'
         )
     if not states_html:
-        states_html = '<div style="text-align:center;color:#999;padding:40px;">Ã Â¸Â¢Ã Â¸Â±Ã Â¸ÂÃ Â¹ÂÃ Â¸Â¡Ã Â¹ÂÃ Â¸Â¡Ã Â¸ÂµÃ Â¹ÂÃ Â¸ÂÃ Â¸Â</div>'
+        states_html = '<div style="text-align:center;color:#999;padding:40px;">\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e21\u0e35\u0e41\u0e0a\u0e17</div>'
     num_states = str(len(chat_states))
     html = (
         '<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">'
@@ -502,23 +501,29 @@ def control_panel():
         '.info-box{background:#e8f4fd;border:1px solid #3498db;border-radius:10px;padding:14px;margin:10px 0;font-size:13px;line-height:1.6;}'
         '.info-box b{color:#2980b9;}'
         '</style></head><body>'
-        '<div class="header"><h1>Ã°ÂÂ¤Â KA Safety Bot Control</h1>'
-        '<p>Ã Â¸ÂÃ Â¸Â§Ã Â¸ÂÃ Â¸ÂÃ Â¸Â¸Ã Â¸Â¡ AI Bot Ã Â¸ÂÃ Â¸Â­Ã Â¸ÂÃ Â¸ÂÃ Â¹ÂÃ Â¸Â­Ã Â¸ÂÃ Â¸Â§Ã Â¸Â²Ã Â¸Â¡ LINE</p></div>'
-        '<div class="container">'
-        '<div class="info-box"><b>Ã Â¸Â§Ã Â¸Â´Ã Â¸ÂÃ Â¸ÂµÃ Â¹ÂÃ Â¸ÂÃ Â¹ÂÃ Â¹ÂÃ Â¸Â¡Ã Â¸Â·Ã Â¹ÂÃ Â¸Â­Ã Â¸ÂÃ Â¹ÂÃ Â¸Â­Ã Â¸ÂÃ Â¸ÂÃ Â¸Â²Ã Â¸Â£Ã Â¸ÂÃ Â¸Â­Ã Â¸ÂÃ Â¸Â¥Ã Â¸Â¹Ã Â¸ÂÃ Â¸ÂÃ Â¹ÂÃ Â¸Â²Ã Â¹ÂÃ Â¸Â­Ã Â¸Â:</b><br>'
-        '1Ã¯Â¸ÂÃ¢ÂÂ£ Ã Â¸ÂÃ Â¸ÂÃ Â¸ÂÃ Â¸Â¸Ã Â¹ÂÃ Â¸Â¡ <b>"Ã¢ÂÂ¸ Ã Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸Â Bot Ã Â¸ÂÃ Â¸Â±Ã Â¹ÂÃ Â¸ÂÃ Â¸Â«Ã Â¸Â¡Ã Â¸Â"</b> Ã Â¸ÂÃ Â¹ÂÃ Â¸Â²Ã Â¸ÂÃ Â¸Â¥Ã Â¹ÂÃ Â¸Â²Ã Â¸Â<br>'
-        '2Ã¯Â¸ÂÃ¢ÂÂ£ Ã Â¸ÂÃ Â¸Â­Ã Â¸ÂÃ Â¸Â¥Ã Â¸Â¹Ã Â¸ÂÃ Â¸ÂÃ Â¹ÂÃ Â¸Â²Ã Â¹ÂÃ Â¸Â LINE Ã Â¹ÂÃ Â¸ÂÃ Â¹ÂÃ Â¹ÂÃ Â¸Â¥Ã Â¸Â¢<br>'
-        '3Ã¯Â¸ÂÃ¢ÂÂ£ Ã Â¸ÂÃ Â¸Â <b>"Ã¢ÂÂ¶Ã¯Â¸Â Ã Â¹ÂÃ Â¸ÂÃ Â¸Â´Ã Â¸Â Bot Ã Â¸ÂÃ Â¸Â±Ã Â¹ÂÃ Â¸ÂÃ Â¸Â«Ã Â¸Â¡Ã Â¸Â"</b> Ã Â¹ÂÃ Â¸Â¡Ã Â¸Â·Ã Â¹ÂÃ Â¸Â­Ã Â¹ÂÃ Â¸ÂªÃ Â¸Â£Ã Â¹ÂÃ Â¸ÂÃ Â¹ÂÃ Â¸Â¥Ã Â¹ÂÃ Â¸Â§</div>'
-        '<div class="section-title">Ã Â¸ÂÃ Â¸Â§Ã Â¸ÂÃ Â¸ÂÃ Â¸Â¸Ã Â¸Â¡Ã Â¸ÂÃ Â¸Â¸Ã Â¸ÂÃ Â¸Â«Ã Â¹ÂÃ Â¸Â­Ã Â¸ÂÃ Â¹ÂÃ Â¸ÂÃ Â¸Â</div>'
-        '<div class="global-btns">'
-        '<button class="btn btn-pause" onclick="pauseAll()">Ã¢ÂÂ¸ Ã Â¸Â«Ã Â¸Â¢Ã Â¸Â¸Ã Â¸Â Bot Ã Â¸ÂÃ Â¸Â±Ã Â¹ÂÃ Â¸ÂÃ Â¸Â«Ã Â¸Â¡Ã Â¸Â</button>'
-        '<button class="btn btn-resume" onclick="resumeAll()">Ã¢ÂÂ¶Ã¯Â¸Â Ã Â¹ÂÃ Â¸ÂÃ Â¸Â´Ã Â¸Â Bot Ã Â¸ÂÃ Â¸Â±Ã Â¹ÂÃ Â¸ÂÃ Â¸Â«Ã Â¸Â¡Ã Â¸Â</button>'
+        '<div class="header">'
+        '<h1>\u{1F916} KA Safety Bot Control</h1>'
+        '<p>\u0e04\u0e27\u0e1a\u0e04\u0e38\u0e21 AI Bot \u0e15\u0e2d\u0e1a\u0e02\u0e49\u0e2d\u0e04\u0e27\u0e32\u0e21 LINE</p>'
         '</div>'
-        '<div class="section-title">Ã Â¸Â«Ã Â¹ÂÃ Â¸Â­Ã Â¸ÂÃ Â¹ÂÃ Â¸ÂÃ Â¸ÂÃ Â¸ÂÃ Â¸ÂµÃ Â¹ÂÃ Â¹ÂÃ Â¸ÂÃ Â¹ÂÃ Â¸ÂÃ Â¸Â²Ã Â¸Â (' + num_states + ' Ã Â¸Â«Ã Â¹ÂÃ Â¸Â­Ã Â¸Â)</div>'
+        '<div class="container">'
+        '<div class="info-box">'
+        '<b>\u0e27\u0e34\u0e18\u0e35\u0e43\u0e0a\u0e49\u0e40\u0e21\u0e37\u0e48\u0e2d\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e32\u0e23\u0e15\u0e2d\u0e1a\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e40\u0e2d\u0e07:</b><br>'
+        '1\ufe0f\u20e3 \u0e01\u0e14\u0e1b\u0e38\u0e48\u0e21 <b>"\u23f8 \u0e2b\u0e22\u0e38\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14"</b><br>'
+        '2\ufe0f\u20e3 \u0e15\u0e2d\u0e1a\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e43\u0e19 LINE \u0e44\u0e14\u0e49\u0e40\u0e25\u0e22<br>'
+        '3\ufe0f\u20e3 \u0e01\u0e14 <b>"\u25b6\ufe0f \u0e40\u0e1b\u0e34\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14"</b> \u0e40\u0e21\u0e37\u0e48\u0e2d\u0e40\u0e2a\u0e23\u0e47\u0e08'
+        '</div>'
+        '<div class="section-title">\u0e04\u0e27\u0e1a\u0e04\u0e38\u0e21\u0e17\u0e38\u0e01\u0e2b\u0e49\u0e2d\u0e07\u0e41\u0e0a\u0e17</div>'
+        '<div class="global-btns">'
+        '<button class="btn btn-pause" onclick="pauseAll()">\u23f8 \u0e2b\u0e22\u0e38\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14</button>'
+        '<button class="btn btn-resume" onclick="resumeAll()">\u25b6\ufe0f \u0e40\u0e1b\u0e34\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14</button>'
+        '</div>'
+        '<div class="section-title">\u0e2b\u0e49\u0e2d\u0e07\u0e41\u0e0a\u0e17\u0e17\u0e35\u0e48\u0e43\u0e0a\u0e49\u0e07\u0e32\u0e19 (' + num_states + ' \u0e2b\u0e49\u0e2d\u0e07)</div>'
         '<div id="states">' + states_html + '</div>'
         '<div style="text-align:center;margin:20px 0;">'
         '<button onclick="location.reload()" style="background:#f8f9fa;border:1px solid #ddd;'
-        'border-radius:8px;padding:10px 24px;cursor:pointer;color:#666;font-size:14px;">Ã°ÂÂÂ Ã Â¸Â£Ã Â¸ÂµÃ Â¹ÂÃ Â¸ÂÃ Â¸Â£Ã Â¸Â</button>'
+        'border-radius:8px;padding:10px 24px;cursor:pointer;color:#666;font-size:14px;">'
+        '\u{1F504} \u0e23\u0e35\u0e40\u0e1f\u0e23\u0e0a'
+        '</button>'
         '</div></div>'
         '<script>'
         'var tok="' + token + '";'
@@ -531,8 +536,6 @@ def control_panel():
         '</script></body></html>'
     )
     return Response(html, content_type='text/html; charset=utf-8')
-
-
 @app.route("/api/pause", methods=['POST'])
 def api_pause():
     token = request.args.get('token', '')
