@@ -447,13 +447,13 @@ def control_panel():
             if display_name:
                 state['display_name'] = display_name
         if display_name:
-            room_label = '\u{1F464} ' + display_name
+            room_label = '\U0001F464 ' + display_name
         else:
             short_id = conv_id[-8:]
             room_label = '...' + short_id
         bot_replied_only = state.get('bot_replied', False) and not state.get('admin_replied', False)
         if bot_replied_only:
-            room_label = '\u{1F534} ' + room_label
+            room_label = '\U0001F534 ' + room_label
         if cooldown_active:
             mins_left = int((600 - (now - admin_last)) / 60) + 1
             status = 'Admin \u0e15\u0e2d\u0e1a\u0e25\u0e48\u0e32\u0e2a\u0e38\u0e14 (\u0e2d\u0e35\u0e01 ' + str(mins_left) + ' \u0e19\u0e32\u0e17\u0e35 Bot \u0e01\u0e25\u0e31\u0e1a\u0e21\u0e32)'
@@ -475,7 +475,7 @@ def control_panel():
             '<div style="flex:1;min-width:0;">'
             '<div style="font-weight:bold;color:#333;font-size:16px;">' + room_label + '</div>'
             '<div style="color:' + status_color + ';font-size:13px;margin-top:4px;">\u25cf ' + status + '</div>'
-            + ('<div style="color:#e74c3c;font-size:12px;margin-top:2px;">\u{1F534} \u0e23\u0e2d Admin \u0e14\u0e33\u0e40\u0e19\u0e34\u0e19\u0e01\u0e32\u0e23</div>' if bot_replied_only else '')
+            + ('<div style="color:#e74c3c;font-size:12px;margin-top:2px;">\U0001F534 \u0e23\u0e2d Admin \u0e14\u0e33\u0e40\u0e19\u0e34\u0e19\u0e01\u0e32\u0e23</div>' if bot_replied_only else '')
             + '</div>'
             '<button onclick="controlBot(\'' + safe_conv_id + '\',\'' + action + '\')" '
             'style="background:' + btn_color + ';color:white;border:none;border-radius:8px;'
@@ -502,27 +502,27 @@ def control_panel():
         '.info-box b{color:#2980b9;}'
         '</style></head><body>'
         '<div class="header">'
-        '<h1>\u{1F916} KA Safety Bot Control</h1>'
+        '<h1>\U0001F916 KA Safety Bot Control</h1>'
         '<p>\u0e04\u0e27\u0e1a\u0e04\u0e38\u0e21 AI Bot \u0e15\u0e2d\u0e1a\u0e02\u0e49\u0e2d\u0e04\u0e27\u0e32\u0e21 LINE</p>'
         '</div>'
         '<div class="container">'
         '<div class="info-box">'
         '<b>\u0e27\u0e34\u0e18\u0e35\u0e43\u0e0a\u0e49\u0e40\u0e21\u0e37\u0e48\u0e2d\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e32\u0e23\u0e15\u0e2d\u0e1a\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e40\u0e2d\u0e07:</b><br>'
-        '1\ufe0f\u20e3 \u0e01\u0e14\u0e1b\u0e38\u0e48\u0e21 <b>"\u23f8 \u0e2b\u0e22\u0e38\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14"</b><br>'
-        '2\ufe0f\u20e3 \u0e15\u0e2d\u0e1a\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e43\u0e19 LINE \u0e44\u0e14\u0e49\u0e40\u0e25\u0e22<br>'
-        '3\ufe0f\u20e3 \u0e01\u0e14 <b>"\u25b6\ufe0f \u0e40\u0e1b\u0e34\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14"</b> \u0e40\u0e21\u0e37\u0e48\u0e2d\u0e40\u0e2a\u0e23\u0e47\u0e08'
+        '1. \u0e01\u0e14\u0e1b\u0e38\u0e48\u0e21 <b>"\u23f8 \u0e2b\u0e22\u0e38\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14"</b><br>'
+        '2. \u0e15\u0e2d\u0e1a\u0e25\u0e39\u0e01\u0e04\u0e49\u0e32\u0e43\u0e19 LINE \u0e44\u0e14\u0e49\u0e40\u0e25\u0e22<br>'
+        '3. \u0e01\u0e14 <b>"\u25b6 \u0e40\u0e1b\u0e34\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14"</b> \u0e40\u0e21\u0e37\u0e48\u0e2d\u0e40\u0e2a\u0e23\u0e47\u0e08'
         '</div>'
         '<div class="section-title">\u0e04\u0e27\u0e1a\u0e04\u0e38\u0e21\u0e17\u0e38\u0e01\u0e2b\u0e49\u0e2d\u0e07\u0e41\u0e0a\u0e17</div>'
         '<div class="global-btns">'
         '<button class="btn btn-pause" onclick="pauseAll()">\u23f8 \u0e2b\u0e22\u0e38\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14</button>'
-        '<button class="btn btn-resume" onclick="resumeAll()">\u25b6\ufe0f \u0e40\u0e1b\u0e34\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14</button>'
+        '<button class="btn btn-resume" onclick="resumeAll()">\u25b6 \u0e40\u0e1b\u0e34\u0e14 Bot \u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14</button>'
         '</div>'
         '<div class="section-title">\u0e2b\u0e49\u0e2d\u0e07\u0e41\u0e0a\u0e17\u0e17\u0e35\u0e48\u0e43\u0e0a\u0e49\u0e07\u0e32\u0e19 (' + num_states + ' \u0e2b\u0e49\u0e2d\u0e07)</div>'
         '<div id="states">' + states_html + '</div>'
         '<div style="text-align:center;margin:20px 0;">'
         '<button onclick="location.reload()" style="background:#f8f9fa;border:1px solid #ddd;'
         'border-radius:8px;padding:10px 24px;cursor:pointer;color:#666;font-size:14px;">'
-        '\u{1F504} \u0e23\u0e35\u0e40\u0e1f\u0e23\u0e0a'
+        '\u0e23\u0e35\u0e40\u0e1f\u0e23\u0e0a'
         '</button>'
         '</div></div>'
         '<script>'
